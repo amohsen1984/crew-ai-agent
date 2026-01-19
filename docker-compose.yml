@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: feedback-backend
+    ports:
+      - "8001:8000"  # Host port 8001 maps to container port 8000
+    env_file:
+      - .env
+    environment:
+      # Note: OPENAI_API_KEY is loaded from .env file via env_file above
+      # Only override if you need to set it differently
+      - MODEL_NAME=${MODEL_NAME:-gpt-4}
+      - DATA_DIR=/app/data
+      - OUTPUT_DIR=/app/output
+      - VERBOSE=${VERBOSE:-false}
+      - CREWAI_TELEMETRY_OPT_OUT=1
+    volumes:
+      - ./data:/app/data:ro
+      - ./output:/app/output
+      - ./config:/app/config:ro
+    networks:
+      - feedback-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: feedback-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://backend:8000
+    volumes:
+      - ./output:/app/output
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - feedback-network
+
+networks:
+  feedback-network:
+    driver: bridge
+
+volumes:
+  output-data:
+
