@@ -1,0 +1,144 @@
+"""API client for backend communication."""
+
+import logging
+import os
+from typing import Dict, Optional
+
+import requests
+import streamlit as st
+
+logger = logging.getLogger(__name__)
+
+# API Configuration
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8001")
+
+
+def api_request(method: str, endpoint: str, **kwargs) -> Optional[Dict]:
+    """Make API request to backend.
+
+    Args:
+        method: HTTP method (GET, POST, PATCH).
+        endpoint: API endpoint path.
+        **kwargs: Additional arguments for requests.
+
+    Returns:
+        Response JSON or None on error.
+    """
+    url = f"{API_BASE_URL}{endpoint}"
+    try:
+        response = requests.request(method, url, **kwargs, timeout=300)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"API request failed: {e}")
+        st.error(f"API Error: {str(e)}")
+        return None
+
+
+def load_tickets() -> "pd.DataFrame":
+    """Load generated tickets from API.
+
+    Returns:
+        DataFrame with tickets or empty DataFrame.
+    """
+    import pandas as pd
+    
+    response = api_request("GET", "/api/v1/tickets", params={"limit": 1000})
+    if response:
+        return pd.DataFrame(response)
+    return pd.DataFrame()
+
+
+def load_metrics() -> "pd.DataFrame":
+    """Load metrics from API.
+
+    Returns:
+        DataFrame with metrics or empty DataFrame.
+    """
+    import pandas as pd
+    
+    response = api_request("GET", "/api/v1/metrics")
+    if response and "metrics" in response:
+        return pd.DataFrame(response["metrics"])
+    return pd.DataFrame()
+
+
+def load_stats() -> Dict:
+    """Load summary statistics from API.
+
+    Returns:
+        Dictionary with statistics.
+    """
+    response = api_request("GET", "/api/v1/stats")
+    return response or {}
+
+
+def start_process_feedback() -> Dict:
+    """Start processing feedback via API (returns immediately with job_id).
+
+    Returns:
+        Response dictionary with job_id.
+    """
+    response = api_request("POST", "/api/v1/process")
+    return response or {"status": "error", "error": "API request failed"}
+
+
+def get_process_status(job_id: str) -> Dict:
+    """Get processing job status.
+
+    Args:
+        job_id: Job ID from start_process_feedback.
+
+    Returns:
+        Job status dictionary.
+    """
+    response = api_request("GET", f"/api/v1/process/status/{job_id}")
+    return response or {"status": "error", "error": "API request failed"}
+
+
+def update_ticket(ticket_id: str, updates: Dict) -> Dict:
+    """Update a ticket via API.
+
+    Args:
+        ticket_id: Ticket ID to update.
+        updates: Dictionary of fields to update.
+
+    Returns:
+        Update result dictionary.
+    """
+    response = api_request("PATCH", f"/api/v1/tickets/{ticket_id}", json=updates)
+    return response or {"status": "error", "error": "API request failed"}
+
+
+def save_ticket_edit(ticket_id: str, action: str, changes: Dict) -> None:
+    """Save ticket edit to history via backend API.
+
+    Args:
+        ticket_id: Ticket ID being edited.
+        action: Action taken (approve/reject/edit).
+        changes: Dictionary of changes made.
+    """
+    from datetime import datetime
+    import streamlit as st
+    
+    # Add to session state for UI display
+    edit_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "ticket_id": ticket_id,
+        "action": action,
+        "changes": changes,
+    }
+    if "edit_history" not in st.session_state:
+        st.session_state.edit_history = []
+    st.session_state.edit_history.append(edit_entry)
+
+    # Save to backend
+    response = api_request(
+        "POST",
+        f"/api/v1/tickets/{ticket_id}/history",
+        json={"ticket_id": ticket_id, "action": action, "changes": changes},
+    )
+    if not response or response.get("status") != "success":
+        print(f"Warning: Could not save edit history: {response}")
+
+

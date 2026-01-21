@@ -60,8 +60,8 @@ This system uses 6 specialized AI agents working in sequence to:
 ### Option 1: Automated Setup Script (Easiest)
 
 Run the setup script which will:
-1. Create a virtual environment
-2. Install all dependencies
+1. Create separate virtual environments for backend and frontend
+2. Install all dependencies in their respective environments
 3. Set up `.env` file (if needed)
 4. Start Docker Compose with all services
 
@@ -120,13 +120,14 @@ docker-compose down
 
 1. **Create virtual environment:**
    ```bash
+   cd backend
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 2. **Install backend dependencies:**
    ```bash
-   pip install -r backend/requirements.txt
+   pip install -r requirements.txt
    ```
 
 3. **Set environment variables:**
@@ -136,17 +137,24 @@ docker-compose down
    export OUTPUT_DIR=output
    ```
 
-4. **Run the backend API:**
+3. **Run the backend API:**
    ```bash
-   cd backend
+   # Make sure backend venv is activated
    python -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8001
    ```
 
 ### Frontend Setup
 
-1. **Install frontend dependencies:**
+1. **Create virtual environment:**
    ```bash
-   pip install -r frontend/requirements.txt
+   cd frontend
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+2. **Install frontend dependencies:**
+   ```bash
+   pip install -r requirements.txt
    ```
 
 2. **Set API URL:**
@@ -156,7 +164,8 @@ docker-compose down
 
 3. **Run the frontend:**
    ```bash
-   streamlit run frontend/src/app.py
+   # Make sure frontend venv is activated
+   streamlit run src/app.py
    ```
 
 ## Project Structure
@@ -259,9 +268,15 @@ docker-compose exec frontend bash
 
 ## Testing
 
+**Note**: Tests should be run from the backend virtual environment since they test backend functionality.
+
 ### Run All Tests
 
 ```bash
+# Activate backend venv first
+cd backend
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+cd ..
 pytest
 ```
 

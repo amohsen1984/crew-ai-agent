@@ -9,7 +9,9 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements
 COPY backend/requirements.txt .
-COPY requirements.txt ./root_requirements.txt
+
+# Upgrade pip first
+RUN pip install --upgrade pip
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt

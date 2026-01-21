@@ -17,46 +17,80 @@ cd "$SCRIPT_DIR"
 
 echo -e "${GREEN}🚀 Setting up CrewAI Feedback Agent...${NC}\n"
 
-# Step 1: Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    echo -e "${YELLOW}📦 Creating virtual environment...${NC}"
-    python3 -m venv venv
-    echo -e "${GREEN}✅ Virtual environment created${NC}\n"
-else
-    echo -e "${GREEN}✅ Virtual environment already exists${NC}\n"
+# Check Python version (requires 3.11+)
+if ! command -v python3 &> /dev/null; then
+    echo -e "${RED}❌ Error: python3 is not installed or not in PATH${NC}"
+    echo -e "${YELLOW}   Please install Python 3.11 or higher${NC}"
+    exit 1
 fi
 
-# Step 2: Activate virtual environment
-echo -e "${YELLOW}🔌 Activating virtual environment...${NC}"
-source venv/bin/activate
-echo -e "${GREEN}✅ Virtual environment activated${NC}\n"
+PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
+PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
+PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
-# Step 3: Upgrade pip
-echo -e "${YELLOW}⬆️  Upgrading pip...${NC}"
-pip install --upgrade pip --quiet
-echo -e "${GREEN}✅ Pip upgraded${NC}\n"
+if [ -z "$PYTHON_MAJOR" ] || [ -z "$PYTHON_MINOR" ]; then
+    echo -e "${YELLOW}⚠️  Warning: Could not determine Python version, continuing anyway...${NC}\n"
+elif [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
+    echo -e "${RED}❌ Error: Python 3.11+ is required. Found Python $PYTHON_VERSION${NC}"
+    echo -e "${YELLOW}   Please install Python 3.11 or higher${NC}"
+    exit 1
+else
+    echo -e "${GREEN}✅ Python version check passed ($PYTHON_VERSION)${NC}\n"
+fi
 
-# Step 4: Install backend dependencies
+# Step 1: Create backend virtual environment if it doesn't exist
+if [ ! -d "backend/venv" ]; then
+    echo -e "${YELLOW}📦 Creating backend virtual environment...${NC}"
+    python3 -m venv backend/venv
+    if [ ! -f "backend/venv/bin/activate" ]; then
+        echo -e "${RED}❌ Error: Failed to create backend virtual environment${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ Backend virtual environment created${NC}\n"
+else
+    echo -e "${GREEN}✅ Backend virtual environment already exists${NC}\n"
+fi
+
+# Step 2: Create frontend virtual environment if it doesn't exist
+if [ ! -d "frontend/venv" ]; then
+    echo -e "${YELLOW}📦 Creating frontend virtual environment...${NC}"
+    python3 -m venv frontend/venv
+    if [ ! -f "frontend/venv/bin/activate" ]; then
+        echo -e "${RED}❌ Error: Failed to create frontend virtual environment${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ Frontend virtual environment created${NC}\n"
+else
+    echo -e "${GREEN}✅ Frontend virtual environment already exists${NC}\n"
+fi
+
+# Step 3: Install backend dependencies
 if [ -f "backend/requirements.txt" ]; then
     echo -e "${YELLOW}📦 Installing backend dependencies...${NC}"
-    pip install -r backend/requirements.txt --quiet
+    source backend/venv/bin/activate
+    pip install --upgrade pip
+    pip install -r backend/requirements.txt
+    deactivate
     echo -e "${GREEN}✅ Backend dependencies installed${NC}\n"
 else
     echo -e "${RED}❌ Error: backend/requirements.txt not found${NC}"
     exit 1
 fi
 
-# Step 5: Install frontend dependencies
+# Step 4: Install frontend dependencies
 if [ -f "frontend/requirements.txt" ]; then
     echo -e "${YELLOW}📦 Installing frontend dependencies...${NC}"
-    pip install -r frontend/requirements.txt --quiet
+    source frontend/venv/bin/activate
+    pip install --upgrade pip
+    pip install -r frontend/requirements.txt
+    deactivate
     echo -e "${GREEN}✅ Frontend dependencies installed${NC}\n"
 else
     echo -e "${RED}❌ Error: frontend/requirements.txt not found${NC}"
     exit 1
 fi
 
-# Step 6: Check for .env file
+# Step 5: Check for .env file
 if [ ! -f ".env" ]; then
     if [ -f ".env.example" ]; then
         echo -e "${YELLOW}📝 Creating .env file from .env.example...${NC}"
@@ -83,12 +117,12 @@ else
     echo -e "${GREEN}✅ .env file exists${NC}\n"
 fi
 
-# Step 7: Verify .env has required variables
+# Step 6: Verify .env has required variables
 if grep -q "your_openai_api_key_here" .env 2>/dev/null || ! grep -q "OPENAI_API_KEY=" .env 2>/dev/null; then
     echo -e "${YELLOW}⚠️  Warning: Please ensure OPENAI_API_KEY is set in .env file${NC}\n"
 fi
 
-# Step 8: Run docker-compose
+# Step 7: Run docker-compose
 echo -e "${GREEN}🐳 Starting Docker Compose...${NC}\n"
 echo -e "${YELLOW}   This will build and start both backend and frontend services${NC}"
 echo -e "${YELLOW}   Press Ctrl+C to stop the services${NC}\n"

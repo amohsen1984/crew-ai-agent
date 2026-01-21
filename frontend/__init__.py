@@ -1,2 +1,3 @@
 """Frontend Streamlit application."""
 
+

@@ -11,6 +11,9 @@ build
 venv
 env
 .venv
+**/venv
+**/env
+**/.venv
 .env
 .git
 .gitignore
@@ -25,4 +28,6 @@ output/*
 .idea
 *.swp
 *.swo
+backend/venv
+frontend/venv
 
