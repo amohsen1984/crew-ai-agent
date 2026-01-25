@@ -11,6 +11,7 @@ backend_src = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_src))
 
 from crew import FeedbackCrew
+from core.priority_rules import PriorityRulesManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ class FeedbackService:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.verbose = verbose
         self._crew: Optional[FeedbackCrew] = None
+        self.priority_rules_manager = PriorityRulesManager(self.output_dir)
 
     @property
     def crew(self) -> FeedbackCrew:
@@ -45,17 +47,26 @@ class FeedbackService:
                 data_dir=str(self.data_dir),
                 output_dir=str(self.output_dir),
                 verbose=self.verbose,
+                priority_rules=self.priority_rules_manager.get_rules(),
+            )
+        else:
+            # Update priority rules if crew already exists
+            self._crew.set_priority_rules(
+                self.priority_rules_manager.get_rules()
             )
         return self._crew
 
-    def process_feedback(self) -> Dict:
+    def process_feedback(self, progress_callback=None) -> Dict:
         """Process feedback and generate tickets.
+
+        Args:
+            progress_callback: Optional callback function(progress, message) for progress updates.
 
         Returns:
             Dictionary with processing results.
         """
         try:
-            result = self.crew.kickoff()
+            result = self.crew.kickoff(progress_callback=progress_callback)
             return {
                 "status": "success",
                 "data": result,
@@ -83,6 +94,8 @@ class FeedbackService:
                 df["status"] = "pending"
             # Fill any NaN values with "pending"
             df["status"] = df["status"].fillna("pending")
+            # Convert NaN values to None for Pydantic compatibility
+            df = df.where(pd.notna(df), None)
             return df.to_dict(orient="records")
         return []
 
@@ -97,6 +110,22 @@ class FeedbackService:
         metrics_file = self.output_dir / "metrics.csv"
         if metrics_file.exists():
             df = pd.read_csv(metrics_file)
+            return df.to_dict(orient="records")
+        return []
+
+    def get_expected_classifications(self) -> List[Dict]:
+        """Get expected classifications for QA comparison.
+
+        Returns:
+            List of expected classification dictionaries.
+        """
+        import pandas as pd
+
+        expected_file = self.data_dir / "expected_classifications.csv"
+        if expected_file.exists():
+            df = pd.read_csv(expected_file)
+            # Convert NaN to None for JSON compatibility
+            df = df.where(pd.notna(df), None)
             return df.to_dict(orient="records")
         return []
 
@@ -204,3 +233,29 @@ class FeedbackService:
             logger.error(f"Error saving edit history: {e}", exc_info=True)
             return {"status": "error", "error": str(e)}
 
+    def set_priority_rules(self, rules: Dict) -> Dict:
+        """Set priority rules configuration.
+
+        Args:
+            rules: Dictionary with priority rules for each category (may be partial).
+
+        Returns:
+            Result dictionary with status.
+        """
+        result = self.priority_rules_manager.set_rules(rules)
+        
+        # Update crew if it exists and save was successful
+        if result.get("status") == "success" and self._crew is not None:
+            self._crew.set_priority_rules(
+                self.priority_rules_manager.get_rules()
+            )
+        
+        return result
+
+    def get_priority_rules(self) -> Dict:
+        """Get current priority rules configuration.
+
+        Returns:
+            Current priority rules dictionary (with defaults if none set).
+        """
+        return self.priority_rules_manager.get_rules()

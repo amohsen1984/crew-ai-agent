@@ -20,9 +20,6 @@ def render_sidebar():
         st.rerun()
 
     verbose = st.checkbox("Verbose Logging", value=False)
-    classification_threshold = st.slider(
-        "Classification Threshold", 0.5, 0.9, 0.7, 0.05
-    )
 
     st.divider()
 

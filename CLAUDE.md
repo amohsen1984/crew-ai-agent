@@ -28,14 +28,21 @@ cd frontend && streamlit run src/app.py
 
 ## Architecture
 
-6 agents in sequential pipeline:
+7 agents in sequential pipeline:
 
 1. **CSV Reader** - Ingests feedback from data/*.csv
-2. **Classifier** - Categorizes: Bug | Feature Request | Praise | Complaint | Spam
+2. **Classifier** - Categorizes: Bug | Feature Request | Praise | Complaint | Spam | Failed
 3. **Bug Analyzer** - Extracts technical details, severity
 4. **Feature Extractor** - Assesses user impact/demand
 5. **Ticket Creator** - Generates structured tickets
 6. **Quality Critic** - Reviews completeness and accuracy
+7. **Fallback Agent** - Handles failed items after retries (creates minimal tickets)
+
+## Error Handling
+
+- **Retry mechanism**: Failed items retry up to 3 times
+- **Fallback processing**: Items that fail all retries get "Failed" category with summary
+- **No pipeline breaks**: Processing continues even when individual items fail
 
 ## Key Files
 

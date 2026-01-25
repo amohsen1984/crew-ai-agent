@@ -15,6 +15,7 @@ from components import (
     manual_override as manual_override_component,
     configuration as configuration_component,
     analytics as analytics_component,
+    qa_comparison as qa_comparison_component,
 )
 
 # Suppress warnings
@@ -54,8 +55,8 @@ def main():
         processing_status_component.render_processing_status()
 
     # Main content area
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
-        ["Dashboard", "Tickets", "Manual Override", "Configuration", "Analytics"]
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        ["Dashboard", "Tickets", "Manual Override", "Configuration", "Analytics", "QA"]
     )
 
     with tab1:
@@ -72,6 +73,9 @@ def main():
 
     with tab5:
         analytics_component.render_analytics()
+
+    with tab6:
+        qa_comparison_component.render_qa_comparison()
 
 
 if __name__ == "__main__":

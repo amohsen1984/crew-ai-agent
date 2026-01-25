@@ -62,6 +62,14 @@ def render_processing_status():
             st.session_state.processing_status = "failed"
             st.session_state.processing_job_id = None
             clear_job_id_from_storage(reason="failed")
+        elif job_status.get("status") == "not_found":
+            # Job no longer exists (backend restarted or cleaned up)
+            # Silently reset to idle state
+            st.session_state.processing_status = "idle"
+            st.session_state.processing_job_id = None
+            st.session_state.processing_progress = 0
+            st.session_state.processing_message = ""
+            clear_job_id_from_storage(reason="not_found")
     
     status = st.session_state.processing_status
     st.write(f"{status_emoji.get(status, '⚪')} {status.capitalize()}")
@@ -70,9 +78,17 @@ def render_processing_status():
     if status in ["pending", "running", "processing"]:
         progress = st.session_state.processing_progress
         message = st.session_state.processing_message
-        st.progress(progress / 100)
+
+        # Progress bar with percentage
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.progress(progress / 100)
+        with col2:
+            st.write(f"**{progress}%**")
+
+        # Current item being processed
         if message:
-            st.caption(message)
+            st.info(f"📝 {message}")
     
     # Show completion message if completed
     if status == "completed":
@@ -93,7 +109,7 @@ def render_processing_status():
             st.session_state.processing_message = "Job started, waiting for processing..."
             st.success(f"Processing started! Job ID: {job_id[:8]}...")
             store_job_id_in_storage(job_id)
-            setup_auto_refresh(interval_seconds=30, source="button-press", job_id=job_id)
+            setup_auto_refresh(interval_seconds=5, source="button-press", job_id=job_id)
         else:
             error_msg = result.get('error', 'Unknown error')
             st.error(f"Failed to start processing: {error_msg}")
@@ -111,7 +127,7 @@ def render_processing_status():
         
         # Only setup auto-refresh if status is active
         if status in ["pending", "running", "processing"]:
-            setup_auto_refresh(interval_seconds=30, source="initial-render", job_id=job_id)
+            setup_auto_refresh(interval_seconds=5, source="initial-render", job_id=job_id)
         else:
             clear_auto_refresh()
     else:

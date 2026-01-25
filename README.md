@@ -12,12 +12,13 @@ The system is split into **frontend** and **backend** components:
 
 ## Overview
 
-This system uses 6 specialized AI agents working in sequence to:
+This system uses 7 specialized AI agents working in sequence to:
 1. **Read** feedback from CSV files
-2. **Classify** feedback into categories (Bug, Feature Request, Praise, Complaint, Spam)
+2. **Classify** feedback into categories (Bug, Feature Request, Praise, Complaint, Spam, Failed)
 3. **Analyze** bugs and feature requests for technical details
 4. **Create** structured tickets
 5. **Review** tickets for quality assurance
+6. **Handle failures** with fallback processing for items that can't be classified
 
 ## Features
 
@@ -26,8 +27,11 @@ This system uses 6 specialized AI agents working in sequence to:
 - Feature request impact analysis
 - Structured ticket generation
 - Quality assurance review
+- **Retry mechanism** with up to 3 attempts for failed items
+- **Fallback processing** for items that can't be classified (no data loss)
 - RESTful API for backend processing
 - Streamlit dashboard for visualization and manual override
+- QA comparison tab for accuracy analysis
 - Dockerized deployment
 - Comprehensive test suite
 

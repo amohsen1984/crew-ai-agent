@@ -1,11 +1,12 @@
 """FastAPI application for feedback processing backend."""
 
 import logging
+import math
 import os
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 # Add backend/src to path for imports
 backend_src = Path(__file__).parent.parent
@@ -14,7 +15,7 @@ sys.path.insert(0, str(backend_src))
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.feedback_service import FeedbackService
 from core.job_manager import job_manager, JobStatus
@@ -27,6 +28,28 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*signal.*")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logging.getLogger("crewai.telemetry").setLevel(logging.ERROR)
+
+def _sanitize_value(value: Any) -> Any:
+    """Recursively sanitize values for JSON serialization (handles NaN, Infinity)."""
+    if value is None:
+        return None
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
+    if isinstance(value, dict):
+        return {k: _sanitize_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_value(item) for item in value]
+    return value
+
+
+def _sanitize_dict(d: Dict) -> Dict:
+    """Recursively sanitize all values in a dictionary for JSON serialization."""
+    if d is None:
+        return None
+    return {k: _sanitize_value(v) for k, v in d.items()}
+
 
 # Validate OpenAI API key at startup
 def _validate_openai_api_key():
@@ -149,6 +172,10 @@ class EditHistoryRequest(BaseModel):
     changes: Dict
 
 
+# Priority rules are sent as a dictionary, so we'll accept it directly
+# Using Dict[str, Any] instead of a BaseModel to handle "Feature Request" key with space
+
+
 # API Endpoints
 @app.get("/")
 async def root():
@@ -182,11 +209,16 @@ def _process_feedback_background(job_id: str) -> Dict:
         Processing result dictionary.
     """
     try:
-        job_manager.update_progress(job_id, 10, "Loading feedback data...")
-        result = service.process_feedback()
-        
+        job_manager.update_progress(job_id, 5, "Loading feedback data...")
+
+        # Create progress callback that updates job_manager
+        def progress_callback(progress: int, message: str):
+            job_manager.update_progress(job_id, progress, message)
+
+        result = service.process_feedback(progress_callback=progress_callback)
+
         if result.get("status") == "success":
-            job_manager.update_progress(job_id, 90, "Processing completed successfully")
+            job_manager.update_progress(job_id, 95, "Processing completed successfully")
             return result
         else:
             raise Exception(result.get("error", "Unknown error"))
@@ -268,7 +300,8 @@ async def get_tickets(
         # Limit results
         tickets = tickets[:limit]
 
-        return tickets
+        # Sanitize tickets to handle NaN/Infinity values
+        return [_sanitize_dict(t) for t in tickets]
     except Exception as e:
         logger.error(f"Error in get_tickets endpoint: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -288,7 +321,8 @@ async def get_ticket(ticket_id: str):
         ticket = service.get_ticket_by_id(ticket_id)
         if ticket is None:
             raise HTTPException(status_code=404, detail="Ticket not found")
-        return ticket
+        # Sanitize ticket to handle NaN/Infinity values
+        return _sanitize_dict(ticket)
     except HTTPException:
         raise
     except Exception as e:
@@ -329,7 +363,9 @@ async def get_metrics():
     """
     try:
         metrics = service.get_metrics()
-        return {"metrics": metrics}
+        # Sanitize metrics to handle NaN/Infinity values
+        sanitized_metrics = [_sanitize_dict(m) for m in metrics]
+        return {"metrics": sanitized_metrics}
     except Exception as e:
         logger.error(f"Error in get_metrics endpoint: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -385,26 +421,86 @@ async def get_stats():
         for ticket in tickets:
             cat = ticket.get("category", "Unknown")
             pri = ticket.get("priority", "Unknown")
-            conf = ticket.get("confidence", 0.0)
+            conf = ticket.get("confidence")
 
             categories[cat] = categories.get(cat, 0) + 1
             priorities[pri] = priorities.get(pri, 0) + 1
-            if conf:
-                confidences.append(float(conf))
+            # Only add valid float values (not None, NaN, or Infinity)
+            if conf is not None:
+                try:
+                    conf_float = float(conf)
+                    if not math.isnan(conf_float) and not math.isinf(conf_float):
+                        confidences.append(conf_float)
+                except (ValueError, TypeError):
+                    pass
 
         avg_confidence = (
             sum(confidences) / len(confidences) if confidences else 0.0
         )
+
+        # Sanitize metrics data to handle any NaN/Infinity values
+        latest_metrics = None
+        if metrics:
+            latest_metrics = _sanitize_dict(metrics[-1])
 
         return {
             "total_tickets": len(tickets),
             "by_category": categories,
             "by_priority": priorities,
             "avg_confidence": avg_confidence,
-            "latest_metrics": metrics[-1] if metrics else None,
+            "latest_metrics": latest_metrics,
         }
     except Exception as e:
         logger.error(f"Error in get_stats endpoint: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/expected-classifications")
+async def get_expected_classifications():
+    """Get expected classifications for QA comparison.
+
+    Returns:
+        List of expected classifications.
+    """
+    try:
+        expected = service.get_expected_classifications()
+        # Sanitize to handle NaN/Infinity values
+        return [_sanitize_dict(e) for e in expected]
+    except Exception as e:
+        logger.error(f"Error in get_expected_classifications endpoint: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/priority-rules")
+async def set_priority_rules(rules: Dict[str, Any]):
+    """Set priority rules configuration.
+
+    Args:
+        rules: Priority rules for each category (dict with keys like "Bug", "Feature Request", "Complaint").
+
+    Returns:
+        Success message.
+    """
+    try:
+        result = service.set_priority_rules(rules)
+        return result
+    except Exception as e:
+        logger.error(f"Error setting priority rules: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/priority-rules")
+async def get_priority_rules():
+    """Get current priority rules configuration.
+
+    Returns:
+        Current priority rules.
+    """
+    try:
+        rules = service.get_priority_rules()
+        return rules
+    except Exception as e:
+        logger.error(f"Error getting priority rules: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

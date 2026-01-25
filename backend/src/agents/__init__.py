@@ -7,6 +7,7 @@ from .feedback_agents import (
     create_feature_extractor_agent,
     create_ticket_creator_agent,
     create_quality_critic_agent,
+    create_fallback_agent,
 )
 
 __all__ = [
@@ -16,5 +17,6 @@ __all__ = [
     "create_feature_extractor_agent",
     "create_ticket_creator_agent",
     "create_quality_critic_agent",
+    "create_fallback_agent",
 ]
 

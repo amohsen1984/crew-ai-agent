@@ -338,7 +338,66 @@ Original Feedback:
 
 ---
 
-## 5. Priority Assignment Rules
+### Agent 7: Fallback Agent
+
+**Role:** Emergency Fallback Processor
+**Goal:** Create a minimal, valid ticket from feedback that failed normal processing. Summarize the feedback content and mark it for manual review.
+**Backstory:** Reliable backup processor that ensures no feedback is lost. When the main processing pipeline fails, steps in to create a basic ticket with the essential information. Always produces valid output, even from difficult or malformed input.
+
+**Input:** Failed feedback item with error details
+**Output:** Minimal ticket with "Failed" category
+
+**Ticket Template:**
+```
+Title: [Failed] Manual review required - {source_id}
+Priority: Medium
+Category: Failed
+Description: Summary of original feedback content
+Technical Details: Error information and retry attempts
+```
+
+**Tools:**
+- `write_csv_tool`: Appends fallback ticket to generated_tickets.csv
+
+**Success Criteria:**
+- Always produces valid output
+- No feedback lost due to processing errors
+- Clear flagging for manual review
+- Error details captured for debugging
+
+---
+
+## 5. Error Handling & Retry Mechanism
+
+### Retry Logic
+
+When processing fails for a feedback item:
+1. **Retry up to 3 times** - Each attempt logs the error and retries
+2. **On final failure** - Fallback Agent creates a minimal ticket
+3. **No pipeline break** - Processing continues with remaining items
+
+### Fallback Ticket Properties
+
+| Field           | Value                                    |
+|-----------------|------------------------------------------|
+| category        | "Failed"                                 |
+| priority        | "Medium"                                 |
+| title           | "[Failed] Manual review required - {id}" |
+| description     | Summary of original feedback             |
+| technical_details | Error type and retry count             |
+| confidence      | 0.0                                      |
+
+### Error Tracking
+
+Failed items are logged with:
+- `retry_attempts`: Number of attempts made (max 3)
+- `error_type`: Exception class name
+- `error_message`: Full error description
+- `status`: "fallback" (vs "success" for normal items)
+
+---
+
+## 6. Priority Assignment Rules
 
 | Category        | Default Priority | Upgrade Conditions                    |
 |-----------------|------------------|---------------------------------------|
@@ -357,7 +416,7 @@ Original Feedback:
 
 ---
 
-## 6. Streamlit UI Requirements
+## 7. Streamlit UI Requirements
 
 ### Page 1: Dashboard
 
@@ -396,7 +455,7 @@ Original Feedback:
 
 ---
 
-## 7. Project Structure
+## 8. Project Structure
 
 ```
 crew-ai-agent/
@@ -454,7 +513,7 @@ crew-ai-agent/
 
 ---
 
-## 8. Implementation Phases
+## 9. Implementation Phases
 
 ### Phase 1: Mock Data Creation
 
@@ -508,7 +567,7 @@ crew-ai-agent/
 
 ---
 
-## 9. Testing Strategy
+## 10. Testing Strategy
 
 See [memory/testing_strategy.md](testing_strategy.md) for comprehensive testing documentation including:
 
@@ -538,7 +597,7 @@ pytest -m accuracy             # Accuracy validation
 
 ---
 
-## 10. Configuration
+## 11. Configuration
 
 ### Environment Variables (`.env`)
 

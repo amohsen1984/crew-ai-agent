@@ -203,3 +203,33 @@ def create_quality_critic_agent() -> Agent:
         llm=llm,
     )
 
+
+def create_fallback_agent() -> Agent:
+    """Create Fallback Agent for handling failed processing.
+
+    This agent is used when normal processing fails after retries.
+    It creates a minimal ticket with a summary of the original feedback.
+
+    Returns:
+        Configured Fallback Agent.
+    """
+    return Agent(
+        role="Emergency Fallback Processor",
+        goal=(
+            "Create a minimal, valid ticket from feedback that failed normal processing. "
+            "Summarize the feedback content and mark it for manual review."
+        ),
+        backstory=(
+            "You are a reliable backup processor that ensures no feedback is lost. "
+            "When the main processing pipeline fails, you step in to create a basic ticket "
+            "with the essential information. You always produce valid output, even from "
+            "difficult or malformed input. You focus on capturing the core message "
+            "and flagging the item for manual review."
+        ),
+        tools=[write_csv_tool],
+        verbose=True,
+        max_iter=5,
+        max_retry_limit=1,
+        llm=llm,
+    )
+

@@ -89,7 +89,7 @@ class TicketOutput(BaseModel):
     title: str = Field(..., min_length=5, max_length=200, description="Ticket title")
     category: str = Field(
         ...,
-        description="Category: Bug, Feature Request, Praise, Complaint, or Spam",
+        description="Category: Bug, Feature Request, Praise, Complaint, Spam, or Failed",
     )
     priority: str = Field(
         ..., description="Priority: Critical, High, Medium, or Low"
@@ -114,7 +114,7 @@ class TicketOutput(BaseModel):
     @classmethod
     def validate_category(cls, v: str) -> str:
         """Validate category is one of allowed values."""
-        allowed = {"Bug", "Feature Request", "Praise", "Complaint", "Spam"}
+        allowed = {"Bug", "Feature Request", "Praise", "Complaint", "Spam", "Failed"}
         if v not in allowed:
             raise ValueError(f"category must be one of {allowed}")
         return v

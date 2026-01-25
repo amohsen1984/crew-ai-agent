@@ -516,17 +516,41 @@ def main():
                 ),
                 key="bug_default",
             )
-            bug_keywords = st.text_input(
+            bug_critical_keywords = st.text_input(
                 "Critical Keywords (comma-separated)",
                 value=", ".join(
-                    st.session_state.priority_rules["Bug"]["critical_keywords"]
+                    st.session_state.priority_rules["Bug"].get("critical_keywords", [])
                 ),
-                key="bug_keywords",
+                key="bug_critical_keywords",
+            )
+            bug_high_keywords = st.text_input(
+                "High Keywords (comma-separated)",
+                value=", ".join(
+                    st.session_state.priority_rules["Bug"].get("high_keywords", [])
+                ),
+                key="bug_high_keywords",
+            )
+            bug_medium_keywords = st.text_input(
+                "Medium Keywords (comma-separated)",
+                value=", ".join(
+                    st.session_state.priority_rules["Bug"].get("medium_keywords", [])
+                ),
+                key="bug_medium_keywords",
+            )
+            bug_low_keywords = st.text_input(
+                "Low Keywords (comma-separated)",
+                value=", ".join(
+                    st.session_state.priority_rules["Bug"].get("low_keywords", [])
+                ),
+                key="bug_low_keywords",
             )
             if st.button("Save Bug Rules", key="save_bug"):
                 st.session_state.priority_rules["Bug"] = {
                     "default": bug_default,
-                    "critical_keywords": [k.strip() for k in bug_keywords.split(",")],
+                    "critical_keywords": [k.strip() for k in bug_critical_keywords.split(",") if k.strip()],
+                    "high_keywords": [k.strip() for k in bug_high_keywords.split(",") if k.strip()],
+                    "medium_keywords": [k.strip() for k in bug_medium_keywords.split(",") if k.strip()],
+                    "low_keywords": [k.strip() for k in bug_low_keywords.split(",") if k.strip()],
                 }
                 st.success("Bug priority rules saved!")
 
@@ -539,21 +563,41 @@ def main():
                 ),
                 key="feature_default",
             )
-            feature_keywords = st.text_input(
-                "High Demand Keywords (comma-separated)",
+            feature_critical_keywords = st.text_input(
+                "Critical Keywords (comma-separated)",
                 value=", ".join(
-                    st.session_state.priority_rules["Feature Request"][
-                        "high_demand_keywords"
-                    ]
+                    st.session_state.priority_rules["Feature Request"].get("critical_keywords", [])
                 ),
-                key="feature_keywords",
+                key="feature_critical_keywords",
+            )
+            feature_high_keywords = st.text_input(
+                "High Keywords (comma-separated)",
+                value=", ".join(
+                    st.session_state.priority_rules["Feature Request"].get("high_keywords", [])
+                ),
+                key="feature_high_keywords",
+            )
+            feature_medium_keywords = st.text_input(
+                "Medium Keywords (comma-separated)",
+                value=", ".join(
+                    st.session_state.priority_rules["Feature Request"].get("medium_keywords", [])
+                ),
+                key="feature_medium_keywords",
+            )
+            feature_low_keywords = st.text_input(
+                "Low Keywords (comma-separated)",
+                value=", ".join(
+                    st.session_state.priority_rules["Feature Request"].get("low_keywords", [])
+                ),
+                key="feature_low_keywords",
             )
             if st.button("Save Feature Rules", key="save_feature"):
                 st.session_state.priority_rules["Feature Request"] = {
                     "default": feature_default,
-                    "high_demand_keywords": [
-                        k.strip() for k in feature_keywords.split(",")
-                    ],
+                    "critical_keywords": [k.strip() for k in feature_critical_keywords.split(",") if k.strip()],
+                    "high_keywords": [k.strip() for k in feature_high_keywords.split(",") if k.strip()],
+                    "medium_keywords": [k.strip() for k in feature_medium_keywords.split(",") if k.strip()],
+                    "low_keywords": [k.strip() for k in feature_low_keywords.split(",") if k.strip()],
                 }
                 st.success("Feature Request priority rules saved!")
 
@@ -566,19 +610,41 @@ def main():
                 ),
                 key="complaint_default",
             )
-            complaint_keywords = st.text_input(
-                "High Priority Keywords (comma-separated)",
+            complaint_critical_keywords = st.text_input(
+                "Critical Keywords (comma-separated)",
                 value=", ".join(
-                    st.session_state.priority_rules["Complaint"]["high_keywords"]
+                    st.session_state.priority_rules["Complaint"].get("critical_keywords", [])
                 ),
-                key="complaint_keywords",
+                key="complaint_critical_keywords",
+            )
+            complaint_high_keywords = st.text_input(
+                "High Keywords (comma-separated)",
+                value=", ".join(
+                    st.session_state.priority_rules["Complaint"].get("high_keywords", [])
+                ),
+                key="complaint_high_keywords",
+            )
+            complaint_medium_keywords = st.text_input(
+                "Medium Keywords (comma-separated)",
+                value=", ".join(
+                    st.session_state.priority_rules["Complaint"].get("medium_keywords", [])
+                ),
+                key="complaint_medium_keywords",
+            )
+            complaint_low_keywords = st.text_input(
+                "Low Keywords (comma-separated)",
+                value=", ".join(
+                    st.session_state.priority_rules["Complaint"].get("low_keywords", [])
+                ),
+                key="complaint_low_keywords",
             )
             if st.button("Save Complaint Rules", key="save_complaint"):
                 st.session_state.priority_rules["Complaint"] = {
                     "default": complaint_default,
-                    "high_keywords": [
-                        k.strip() for k in complaint_keywords.split(",")
-                    ],
+                    "critical_keywords": [k.strip() for k in complaint_critical_keywords.split(",") if k.strip()],
+                    "high_keywords": [k.strip() for k in complaint_high_keywords.split(",") if k.strip()],
+                    "medium_keywords": [k.strip() for k in complaint_medium_keywords.split(",") if k.strip()],
+                    "low_keywords": [k.strip() for k in complaint_low_keywords.split(",") if k.strip()],
                 }
                 st.success("Complaint priority rules saved!")
 

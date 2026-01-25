@@ -73,6 +73,20 @@ def load_stats() -> Dict:
     return response or {}
 
 
+def load_expected_classifications() -> "pd.DataFrame":
+    """Load expected classifications for QA comparison.
+
+    Returns:
+        DataFrame with expected classifications or empty DataFrame.
+    """
+    import pandas as pd
+
+    response = api_request("GET", "/api/v1/expected-classifications")
+    if response:
+        return pd.DataFrame(response)
+    return pd.DataFrame()
+
+
 def start_process_feedback() -> Dict:
     """Start processing feedback via API (returns immediately with job_id).
 
@@ -92,8 +106,20 @@ def get_process_status(job_id: str) -> Dict:
     Returns:
         Job status dictionary.
     """
-    response = api_request("GET", f"/api/v1/process/status/{job_id}")
-    return response or {"status": "error", "error": "API request failed"}
+    url = f"{API_BASE_URL}/api/v1/process/status/{job_id}"
+    try:
+        response = requests.get(url, timeout=30)
+        if response.status_code == 404:
+            # Job not found - likely cleaned up or backend restarted
+            # This is expected behavior, not an error to display
+            logger.info(f"Job {job_id} not found (404) - may have been cleaned up")
+            return {"status": "not_found", "message": "Job not found"}
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to get job status: {e}")
+        st.error(f"API Error: {str(e)}")
+        return {"status": "error", "error": str(e)}
 
 
 def update_ticket(ticket_id: str, updates: Dict) -> Dict:
@@ -108,6 +134,29 @@ def update_ticket(ticket_id: str, updates: Dict) -> Dict:
     """
     response = api_request("PATCH", f"/api/v1/tickets/{ticket_id}", json=updates)
     return response or {"status": "error", "error": "API request failed"}
+
+
+def set_priority_rules(rules: Dict) -> Dict:
+    """Set priority rules configuration via API.
+
+    Args:
+        rules: Dictionary with priority rules for each category.
+
+    Returns:
+        Response dictionary with status.
+    """
+    response = api_request("POST", "/api/v1/priority-rules", json=rules)
+    return response or {"status": "error", "error": "API request failed"}
+
+
+def get_priority_rules() -> Dict:
+    """Get current priority rules configuration from API.
+
+    Returns:
+        Dictionary with priority rules or empty dict on error.
+    """
+    response = api_request("GET", "/api/v1/priority-rules")
+    return response or {}
 
 
 def save_ticket_edit(ticket_id: str, action: str, changes: Dict) -> None:

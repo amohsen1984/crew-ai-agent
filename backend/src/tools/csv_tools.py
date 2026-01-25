@@ -2,6 +2,7 @@
 
 import json
 import logging
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,9 @@ import pandas as pd
 from crewai.tools import tool
 
 logger = logging.getLogger(__name__)
+
+# Thread lock for safe concurrent CSV writes
+_csv_write_lock = threading.Lock()
 
 
 @tool("Read CSV File")
@@ -102,20 +106,30 @@ def write_csv_tool(file_path: str, data: str, append: bool = False) -> str:
 
         df = pd.DataFrame(records)
 
-        if append and path.exists():
-            existing_df = pd.read_csv(path)
-            # Ensure status column exists in existing data
-            if is_tickets_file:
-                if "status" not in existing_df.columns:
-                    existing_df["status"] = "pending"
-                else:
-                    # Fill any missing status values in existing data
-                    existing_df["status"] = existing_df["status"].fillna("pending")
-            df = pd.concat([existing_df, df], ignore_index=True)
+        # Use thread lock for safe concurrent writes
+        with _csv_write_lock:
+            if append and path.exists():
+                existing_df = pd.read_csv(path)
+                # Ensure status column exists in existing data
+                if is_tickets_file:
+                    if "status" not in existing_df.columns:
+                        existing_df["status"] = "pending"
+                    else:
+                        # Fill any missing status values in existing data
+                        existing_df["status"] = existing_df["status"].fillna("pending")
 
-        path.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(path, index=False)
-        logger.info(f"Wrote {len(df)} rows to {file_path}")
+                    # Check for duplicates by source_id and update instead of append
+                    if "source_id" in df.columns and "source_id" in existing_df.columns:
+                        new_source_ids = set(df["source_id"].tolist())
+                        # Keep existing records that are NOT in the new records
+                        existing_df = existing_df[~existing_df["source_id"].isin(new_source_ids)]
+                        logger.info(f"Updating {len(new_source_ids)} tickets (replacing existing)")
+
+                df = pd.concat([existing_df, df], ignore_index=True)
+
+            path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(path, index=False)
+            logger.info(f"Wrote {len(df)} rows to {file_path}")
 
         return json.dumps(
             {
