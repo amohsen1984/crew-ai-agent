@@ -301,23 +301,31 @@ async def fetch_review(session: aiohttp.ClientSession, url: str) -> dict:
 ## Project Structure
 
 ### Recommended Layout
-```
-project/
-├── src/
-│   ├── __init__.py
-│   ├── models/          # Pydantic models and data classes
-│   ├── services/        # Business logic
-│   ├── utils/           # Utility functions
-│   └── exceptions.py    # Custom exceptions
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py      # Shared fixtures
-│   ├── unit/
-│   └── integration/
-├── config/
-│   └── settings.py      # Configuration management
-├── pyproject.toml       # Project metadata and dependencies
-└── README.md
+```mermaid
+graph TD
+    Project[project/] --> Src[src/]
+    Project --> Tests[tests/]
+    Project --> Config[config/]
+    Project --> PyProject[pyproject.toml]
+    Project --> Readme[README.md]
+    
+    Src --> SrcInit[__init__.py]
+    Src --> Models[models/<br/>Pydantic models and data classes]
+    Src --> Services[services/<br/>Business logic]
+    Src --> Utils[utils/<br/>Utility functions]
+    Src --> Exceptions[exceptions.py<br/>Custom exceptions]
+    
+    Tests --> TestsInit[__init__.py]
+    Tests --> Conftest[conftest.py<br/>Shared fixtures]
+    Tests --> Unit[unit/]
+    Tests --> Integration[integration/]
+    
+    Config --> Settings[settings.py<br/>Configuration management]
+    
+    style Project fill:#e1f5ff
+    style Src fill:#fff4e1
+    style Tests fill:#e8f5e9
+    style Config fill:#fce4ec
 ```
 
 ### Configuration Management

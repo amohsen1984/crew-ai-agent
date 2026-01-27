@@ -28,11 +28,22 @@ def api_request(method: str, endpoint: str, **kwargs) -> Optional[Dict]:
     try:
         response = requests.request(method, url, **kwargs, timeout=300)
         response.raise_for_status()
-        return response.json()
+        result = response.json()
+        # Log if result indicates an error
+        if isinstance(result, dict) and result.get("status") == "error":
+            logger.warning(f"API returned error status: {result.get('error', 'Unknown error')}")
+        return result
+    except requests.exceptions.HTTPError as e:
+        # Try to get error details from response
+        try:
+            error_detail = e.response.json() if e.response else {}
+            logger.error(f"API HTTP error {e.response.status_code}: {error_detail}")
+        except:
+            logger.error(f"API HTTP error {e.response.status_code}: {str(e)}")
+        return {"status": "error", "error": f"HTTP {e.response.status_code}: {str(e)}"}
     except requests.exceptions.RequestException as e:
         logger.error(f"API request failed: {e}")
-        st.error(f"API Error: {str(e)}")
-        return None
+        return {"status": "error", "error": f"Request failed: {str(e)}"}
 
 
 def load_tickets() -> "pd.DataFrame":
@@ -157,6 +168,16 @@ def get_priority_rules() -> Dict:
     """
     response = api_request("GET", "/api/v1/priority-rules")
     return response or {}
+
+
+def deduplicate_tickets() -> Dict:
+    """Deduplicate tickets by regenerating ticket_ids for duplicates.
+
+    Returns:
+        Deduplication result dictionary.
+    """
+    response = api_request("POST", "/api/v1/tickets/deduplicate")
+    return response or {"status": "error", "error": "API request failed"}
 
 
 def save_ticket_edit(ticket_id: str, action: str, changes: Dict) -> None:

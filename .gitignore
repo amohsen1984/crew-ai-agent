@@ -28,9 +28,13 @@ ENV/
 # IDE
 .vscode/
 .idea/
+.settings/
 *.swp
 *.swo
 *~
+
+# Project specific
+memory/
 
 # Environment variables
 .env

@@ -13,6 +13,7 @@ The system is split into **frontend** and **backend** components:
 ## Overview
 
 This system uses 7 specialized AI agents working in sequence to:
+
 1. **Read** feedback from CSV files
 2. **Classify** feedback into categories (Bug, Feature Request, Praise, Complaint, Spam, Failed)
 3. **Analyze** bugs and feature requests for technical details
@@ -38,6 +39,7 @@ This system uses 7 specialized AI agents working in sequence to:
 ## Tech Stack
 
 ### Backend
+
 - **Python 3.11+**
 - **FastAPI** - REST API framework
 - **CrewAI** - Multi-agent orchestration
@@ -46,10 +48,12 @@ This system uses 7 specialized AI agents working in sequence to:
 - **OpenAI GPT-4** - LLM backend
 
 ### Frontend
+
 - **Streamlit** - Web dashboard
 - **Requests** - HTTP client for API communication
 
 ### Infrastructure
+
 - **Docker** - Containerization
 - **Docker Compose** - Multi-container orchestration
 
@@ -64,6 +68,7 @@ This system uses 7 specialized AI agents working in sequence to:
 ### Option 1: Automated Setup Script (Easiest)
 
 Run the setup script which will:
+
 1. Create separate virtual environments for backend and frontend
 2. Install all dependencies in their respective environments
 3. Set up `.env` file (if needed)
@@ -101,6 +106,7 @@ docker-compose up --build
 ```
 
 This will:
+
 - Build backend and frontend containers
 - Start the backend API on `http://localhost:8001`
 - Start the frontend dashboard on `http://localhost:8501`
@@ -108,9 +114,9 @@ This will:
 
 #### Step 4: Access the Application
 
-- **Frontend Dashboard**: http://localhost:8501
-- **Backend API**: http://localhost:8001
-- **API Documentation**: http://localhost:8001/docs
+- **Frontend Dashboard**: <http://localhost:8501>
+- **Backend API**: <http://localhost:8001>
+- **API Documentation**: <http://localhost:8001/docs>
 
 ### Stop the Application
 
@@ -123,6 +129,7 @@ docker-compose down
 ### Backend Setup
 
 1. **Create virtual environment:**
+
    ```bash
    cd backend
    python3 -m venv venv
@@ -130,18 +137,21 @@ docker-compose down
    ```
 
 2. **Install backend dependencies:**
+
    ```bash
    pip install -r requirements.txt
    ```
 
 3. **Set environment variables:**
+
    ```bash
    export OPENAI_API_KEY=sk-your-api-key-here
    export DATA_DIR=data
    export OUTPUT_DIR=output
    ```
 
-3. **Run the backend API:**
+4. **Run the backend API:**
+
    ```bash
    # Make sure backend venv is activated
    python -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8001
@@ -150,6 +160,7 @@ docker-compose down
 ### Frontend Setup
 
 1. **Create virtual environment:**
+
    ```bash
    cd frontend
    python3 -m venv venv
@@ -157,16 +168,19 @@ docker-compose down
    ```
 
 2. **Install frontend dependencies:**
+
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Set API URL:**
+3. **Set API URL:**
+
    ```bash
    export API_BASE_URL=http://localhost:8001
    ```
 
-3. **Run the frontend:**
+4. **Run the frontend:**
+
    ```bash
    # Make sure frontend venv is activated
    streamlit run src/app.py
@@ -208,60 +222,72 @@ crew-ai-agent/
 ## API Endpoints
 
 ### Health Check
+
 - `GET /api/v1/health` - Health check endpoint
 
 ### Processing
+
 - `POST /api/v1/process` - Process feedback and generate tickets
 
 ### Tickets
+
 - `GET /api/v1/tickets` - Get all tickets (with optional filters)
   - Query params: `category`, `priority`, `limit`
 - `GET /api/v1/tickets/{ticket_id}` - Get specific ticket
 - `PATCH /api/v1/tickets/{ticket_id}` - Update ticket
 
 ### Metrics & Stats
+
 - `GET /api/v1/metrics` - Get processing metrics
 - `GET /api/v1/stats` - Get summary statistics
 
 ### API Documentation
 
 Interactive API documentation is available at:
-- Swagger UI: http://localhost:8001/docs
-- ReDoc: http://localhost:8001/redoc
+
+- Swagger UI: <http://localhost:8001/docs>
+- ReDoc: <http://localhost:8001/redoc>
 
 ## Docker Commands
 
 ### Build containers
+
 ```bash
 docker-compose build
 ```
 
 ### Start services
+
 ```bash
 docker-compose up
 ```
 
 ### Start in background
+
 ```bash
 docker-compose up -d
 ```
 
 ### View logs
+
 ```bash
 docker-compose logs -f
 ```
 
 ### Stop services
+
 ```bash
 docker-compose down
 ```
 
 ### Rebuild and restart
+
 ```bash
 docker-compose up --build
 ```
 
 ### Execute commands in containers
+
 ```bash
 # Backend shell
 docker-compose exec backend bash
@@ -330,6 +356,7 @@ See the main README section on data format. Input files should be placed in the 
 ### Output Files
 
 All output files are generated in the `output/` directory:
+
 - `generated_tickets.csv` - Structured tickets
 - `processing_log.csv` - Processing log
 - `metrics.csv` - Processing metrics
@@ -368,8 +395,8 @@ ports:
 1. **Make code changes** in `backend/` or `frontend/`
 2. **Rebuild containers**: `docker-compose up --build`
 3. **Run tests**: `pytest`
-4. **Check API**: Visit http://localhost:8001/docs
-5. **Test frontend**: Visit http://localhost:8501
+4. **Check API**: Visit <http://localhost:8001/docs>
+5. **Test frontend**: Visit <http://localhost:8501>
 
 ## Production Deployment
 

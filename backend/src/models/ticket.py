@@ -1,5 +1,6 @@
 """Pydantic models for ticket output validation."""
 
+import uuid
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
@@ -81,7 +82,10 @@ class FeatureAnalysis(BaseModel):
 class TicketOutput(BaseModel):
     """Structured ticket output."""
 
-    ticket_id: str = Field(..., description="Unique ticket identifier (UUID)")
+    ticket_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Unique ticket identifier (UUID) - auto-generated if not provided"
+    )
     source_id: str = Field(..., description="Original feedback ID")
     source_type: str = Field(
         ..., description="Source type: 'app_store_review' or 'email'"

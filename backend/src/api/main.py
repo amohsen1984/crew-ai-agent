@@ -504,6 +504,25 @@ async def get_priority_rules():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/v1/tickets/deduplicate")
+async def deduplicate_tickets():
+    """Remove duplicate tickets by regenerating ticket_ids for duplicates.
+
+    Returns:
+        Deduplication result with statistics.
+    """
+    try:
+        result = service.deduplicate_tickets()
+        if result["status"] == "error":
+            raise HTTPException(status_code=500, detail=result["error"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in deduplicate_tickets endpoint: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)

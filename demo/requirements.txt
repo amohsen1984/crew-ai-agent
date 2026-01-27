@@ -1,0 +1,12 @@
+# Requirements for demo diagram generation
+
+# Diagram generation
+diagrams>=0.23.0
+
+# Optional: For better diagram rendering
+graphviz>=0.20.0
+
+# Note: You may also need to install Graphviz system package:
+# macOS: brew install graphviz
+# Linux: apt install graphviz or yum install graphviz
+# Windows: Download from https://graphviz.org/download/

@@ -1,6 +1,7 @@
 """Manual Override tab component."""
 
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -144,8 +145,8 @@ def render_manual_override():
 
         st.divider()
 
-        # Batch approval
-        st.subheader("Batch Approval")
+        # Batch approval/rejection
+        st.subheader("Batch Approval/Rejection")
         st.write("Select multiple tickets with similar characteristics:")
 
         if not tickets_df.empty:
@@ -173,17 +174,164 @@ def render_manual_override():
 
                 st.write(f"Found {len(batch_tickets)} tickets matching criteria")
 
-                if st.button("✅ Approve All Matching", type="primary"):
-                    approved_count = 0
-                    for _, ticket in batch_tickets.iterrows():
-                        changes = {
-                            "category": batch_category if batch_category != "All" else ticket["category"],
-                            "priority": batch_priority if batch_priority != "All" else ticket["priority"],
-                        }
-                        result = update_ticket(ticket["ticket_id"], changes)
-                        if result.get("status") == "success":
-                            approved_count += 1
-                    st.success(f"Approved {approved_count} tickets!")
+                if len(batch_tickets) > 0:
+                    col_approve, col_reject = st.columns(2)
+                    
+                    with col_approve:
+                        if st.button("✅ Approve All Matching", type="primary", key="batch_approve"):
+                            approved_count = 0
+                            failed_count = 0
+                            error_messages = []
+                            failed_ticket_ids = []
+                            
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            
+                            total_tickets = len(batch_tickets)
+                            
+                            with st.spinner(f"Approving {total_tickets} tickets..."):
+                                for idx, (_, ticket) in enumerate(batch_tickets.iterrows(), 1):
+                                    ticket_id = ticket["ticket_id"]
+                                    status_text.text(f"Processing ticket {idx}/{total_tickets}: {ticket_id}")
+                                    progress_bar.progress(idx / total_tickets)
+                                    
+                                    changes = {
+                                        "status": "approved",
+                                        "category": batch_category if batch_category != "All" else ticket["category"],
+                                        "priority": batch_priority if batch_priority != "All" else ticket["priority"],
+                                    }
+                                    
+                                    # Retry logic for race conditions
+                                    max_retries = 5
+                                    retry_delay = 0.3  # 300ms delay between retries
+                                    success = False
+                                    last_error = None
+                                    
+                                    for attempt in range(max_retries):
+                                        result = update_ticket(ticket_id, changes)
+                                        
+                                        # Check if result is valid and successful
+                                        if result:
+                                            if result.get("status") == "success":
+                                                # Small delay for file system sync
+                                                time.sleep(0.15)
+                                                approved_count += 1
+                                                save_ticket_edit(ticket_id, "approve", changes)
+                                                success = True
+                                                break
+                                            else:
+                                                last_error = result.get("error", "Unknown error")
+                                        else:
+                                            last_error = "API request returned None"
+                                        
+                                        # Wait before retry (exponential backoff)
+                                        if attempt < max_retries - 1:
+                                            time.sleep(retry_delay * (attempt + 1))
+                                    
+                                    if not success:
+                                        failed_count += 1
+                                        failed_ticket_ids.append(ticket_id)
+                                        error_msg = last_error or "Update failed after retries"
+                                        error_messages.append(f"Ticket {ticket_id}: {error_msg}")
+                                    
+                                    # Delay between tickets to reduce race conditions
+                                    if idx < total_tickets:
+                                        time.sleep(0.25)  # Increased delay for better reliability
+                            
+                            progress_bar.empty()
+                            status_text.empty()
+                            
+                            if approved_count > 0:
+                                st.success(f"✅ Approved {approved_count} ticket(s)!")
+                            if failed_count > 0:
+                                st.error(f"❌ Failed to approve {failed_count} ticket(s)")
+                                if error_messages:
+                                    with st.expander("Error details"):
+                                        st.write("**Failed tickets:**")
+                                        for ticket_id in failed_ticket_ids:
+                                            st.text(f"- {ticket_id}")
+                                        st.write("**Error messages:**")
+                                        for msg in error_messages:
+                                            st.text(msg)
+                            
+                            if approved_count > 0:
+                                st.rerun()
+                    
+                    with col_reject:
+                        if st.button("❌ Reject All Matching", key="batch_reject"):
+                            rejected_count = 0
+                            failed_count = 0
+                            error_messages = []
+                            failed_ticket_ids = []
+                            
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            
+                            total_tickets = len(batch_tickets)
+                            
+                            with st.spinner(f"Rejecting {total_tickets} tickets..."):
+                                for idx, (_, ticket) in enumerate(batch_tickets.iterrows(), 1):
+                                    ticket_id = ticket["ticket_id"]
+                                    status_text.text(f"Processing ticket {idx}/{total_tickets}: {ticket_id}")
+                                    progress_bar.progress(idx / total_tickets)
+                                    
+                                    changes = {"status": "rejected"}
+                                    
+                                    # Retry logic for race conditions
+                                    max_retries = 5
+                                    retry_delay = 0.3  # 300ms delay between retries
+                                    success = False
+                                    last_error = None
+                                    
+                                    for attempt in range(max_retries):
+                                        result = update_ticket(ticket_id, changes)
+                                        
+                                        # Check if result is valid and successful
+                                        if result:
+                                            if result.get("status") == "success":
+                                                # Small delay for file system sync
+                                                time.sleep(0.15)
+                                                rejected_count += 1
+                                                save_ticket_edit(ticket_id, "reject", changes)
+                                                success = True
+                                                break
+                                            else:
+                                                last_error = result.get("error", "Unknown error")
+                                        else:
+                                            last_error = "API request returned None"
+                                        
+                                        # Wait before retry (exponential backoff)
+                                        if attempt < max_retries - 1:
+                                            time.sleep(retry_delay * (attempt + 1))
+                                    
+                                    if not success:
+                                        failed_count += 1
+                                        failed_ticket_ids.append(ticket_id)
+                                        error_msg = last_error or "Update failed after retries"
+                                        error_messages.append(f"Ticket {ticket_id}: {error_msg}")
+                                    
+                                    # Delay between tickets to reduce race conditions
+                                    if idx < total_tickets:
+                                        time.sleep(0.25)  # Increased delay for better reliability
+                            
+                            progress_bar.empty()
+                            status_text.empty()
+                            
+                            if rejected_count > 0:
+                                st.warning(f"❌ Rejected {rejected_count} ticket(s)!")
+                            if failed_count > 0:
+                                st.error(f"❌ Failed to reject {failed_count} ticket(s)")
+                                if error_messages:
+                                    with st.expander("Error details"):
+                                        st.write("**Failed tickets:**")
+                                        for ticket_id in failed_ticket_ids:
+                                            st.text(f"- {ticket_id}")
+                                        st.write("**Error messages:**")
+                                        for msg in error_messages:
+                                            st.text(msg)
+                            
+                            if rejected_count > 0:
+                                st.rerun()
 
         st.divider()
 

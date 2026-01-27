@@ -38,6 +38,9 @@ class FeedbackService:
         self.verbose = verbose
         self._crew: Optional[FeedbackCrew] = None
         self.priority_rules_manager = PriorityRulesManager(self.output_dir)
+        # Thread lock for safe concurrent CSV writes in update_ticket
+        import threading
+        self._update_lock = threading.Lock()
 
     @property
     def crew(self) -> FeedbackCrew:
@@ -162,29 +165,71 @@ class FeedbackService:
         if not tickets_file.exists():
             return {"status": "error", "error": "No tickets file found"}
 
-        df = pd.read_csv(tickets_file)
-        ticket_idx = df[df["ticket_id"] == ticket_id].index
+        # Use lock to prevent race conditions when multiple updates happen simultaneously
+        with self._update_lock:
+            try:
+                df = pd.read_csv(tickets_file)
+                ticket_idx = df[df["ticket_id"] == ticket_id].index
 
-        if len(ticket_idx) == 0:
-            return {"status": "error", "error": "Ticket not found"}
+                if len(ticket_idx) == 0:
+                    return {"status": "error", "error": "Ticket not found"}
 
-        # Add missing columns (e.g., status) if they don't exist
-        for key in updates.keys():
-            if key not in df.columns:
-                # Initialize with default value based on column name
-                if key == "status":
-                    df[key] = "pending"  # Default status for all existing tickets
-                else:
-                    df[key] = None
-                # Fill any NaN values for the new column
-                df[key] = df[key].fillna("pending" if key == "status" else None)
+                # Warn if duplicates exist
+                if len(ticket_idx) > 1:
+                    logger.warning(
+                        f"Found {len(ticket_idx)} tickets with duplicate ticket_id {ticket_id}. "
+                        f"Updating all occurrences."
+                    )
 
-        # Update fields
-        for key, value in updates.items():
-            df.at[ticket_idx[0], key] = value
+                # Add missing columns (e.g., status) if they don't exist
+                for key in updates.keys():
+                    if key not in df.columns:
+                        # Initialize with default value based on column name
+                        if key == "status":
+                            df[key] = "pending"  # Default status for all existing tickets
+                        else:
+                            df[key] = None
+                        # Fill any NaN values for the new column
+                        df[key] = df[key].fillna("pending" if key == "status" else None)
 
-        df.to_csv(tickets_file, index=False)
-        return {"status": "success", "message": "Ticket updated"}
+                # Update fields for ALL matching tickets (handle duplicates)
+                for idx in ticket_idx:
+                    for key, value in updates.items():
+                        df.at[idx, key] = value
+
+                # Write to CSV with explicit flushing
+                df.to_csv(tickets_file, index=False)
+                
+                # Verify the update was written correctly by reading back
+                try:
+                    verify_df = pd.read_csv(tickets_file)
+                    verify_idx = verify_df[verify_df["ticket_id"] == ticket_id].index
+                    if len(verify_idx) > 0:
+                        # Check that all updates were applied
+                        all_correct = True
+                        for key, value in updates.items():
+                            if verify_df.at[verify_idx[0], key] != value:
+                                logger.warning(
+                                    f"Verification failed for ticket {ticket_id}: "
+                                    f"expected {key}={value}, got {verify_df.at[verify_idx[0], key]}"
+                                )
+                                all_correct = False
+                        
+                        if all_correct:
+                            return {"status": "success", "message": "Ticket updated"}
+                        else:
+                            return {"status": "error", "error": "Update verification failed"}
+                    else:
+                        return {"status": "error", "error": "Ticket not found after update"}
+                except Exception as verify_error:
+                    logger.error(f"Error verifying ticket update {ticket_id}: {verify_error}")
+                    # Still return success if write succeeded, verification is just a safety check
+                    return {"status": "success", "message": "Ticket updated (verification skipped)"}
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error updating ticket {ticket_id}: {e}", exc_info=True)
+                return {"status": "error", "error": f"Failed to update ticket: {str(e)}"}
 
     def save_edit_history(
         self, ticket_id: str, action: str, changes: Dict
@@ -259,3 +304,58 @@ class FeedbackService:
             Current priority rules dictionary (with defaults if none set).
         """
         return self.priority_rules_manager.get_rules()
+
+    def deduplicate_tickets(self) -> Dict:
+        """Remove duplicate tickets, keeping the first occurrence of each ticket_id.
+
+        Returns:
+            Result dictionary with status and deduplication stats.
+        """
+        import pandas as pd
+        import uuid
+
+        tickets_file = self.output_dir / "generated_tickets.csv"
+        if not tickets_file.exists():
+            return {"status": "error", "error": "No tickets file found"}
+
+        with self._update_lock:
+            try:
+                df = pd.read_csv(tickets_file)
+                original_count = len(df)
+
+                # Find duplicates
+                duplicates_mask = df.duplicated(subset=["ticket_id"], keep="first")
+                duplicate_count = duplicates_mask.sum()
+
+                if duplicate_count == 0:
+                    return {
+                        "status": "success",
+                        "message": "No duplicates found",
+                        "original_count": original_count,
+                        "duplicate_count": 0,
+                        "final_count": original_count,
+                    }
+
+                # For duplicates, regenerate ticket_id for the duplicates (keep first occurrence)
+                duplicate_indices = df[duplicates_mask].index
+                for idx in duplicate_indices:
+                    # Generate new unique ticket_id for duplicate
+                    df.at[idx, "ticket_id"] = str(uuid.uuid4())
+                    logger.info(
+                        f"Regenerated ticket_id for duplicate at index {idx}: "
+                        f"new_id={df.at[idx, 'ticket_id']}"
+                    )
+
+                # Write deduplicated data
+                df.to_csv(tickets_file, index=False)
+
+                return {
+                    "status": "success",
+                    "message": f"Removed {duplicate_count} duplicate ticket(s)",
+                    "original_count": original_count,
+                    "duplicate_count": duplicate_count,
+                    "final_count": len(df),
+                }
+            except Exception as e:
+                logger.error(f"Error deduplicating tickets: {e}", exc_info=True)
+                return {"status": "error", "error": f"Failed to deduplicate: {str(e)}"}

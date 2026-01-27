@@ -3,6 +3,7 @@
 import json
 import logging
 import threading
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -98,11 +99,16 @@ def write_csv_tool(file_path: str, data: str, append: bool = False) -> str:
         
         if is_tickets_file:
             # Ensure status and created_at fields exist for ticket records
+            # Generate ticket_id if missing (agents shouldn't generate UUIDs)
             for record in records:
                 if "status" not in record:
                     record["status"] = "pending"
                 if "created_at" not in record:
                     record["created_at"] = datetime.now().isoformat()
+                # Always generate ticket_id in code to ensure uniqueness
+                if "ticket_id" not in record or not record.get("ticket_id"):
+                    record["ticket_id"] = str(uuid.uuid4())
+                    logger.debug(f"Generated ticket_id for record: {record.get('source_id', 'unknown')}")
 
         df = pd.DataFrame(records)
 
@@ -117,6 +123,29 @@ def write_csv_tool(file_path: str, data: str, append: bool = False) -> str:
                     else:
                         # Fill any missing status values in existing data
                         existing_df["status"] = existing_df["status"].fillna("pending")
+
+                    # Check for duplicates by ticket_id and regenerate if found
+                    if "ticket_id" in df.columns and "ticket_id" in existing_df.columns:
+                        existing_ticket_ids = set(existing_df["ticket_id"].tolist())
+                        duplicate_mask = df["ticket_id"].isin(existing_ticket_ids)
+                        duplicate_count = duplicate_mask.sum()
+                        
+                        if duplicate_count > 0:
+                            logger.warning(
+                                f"Found {duplicate_count} duplicate ticket_id(s). Regenerating..."
+                            )
+                            # Regenerate ticket_ids for duplicates
+                            for idx in df[duplicate_mask].index:
+                                new_ticket_id = str(uuid.uuid4())
+                                # Ensure new ID is also unique within the new records
+                                while new_ticket_id in existing_ticket_ids or new_ticket_id in df["ticket_id"].tolist():
+                                    new_ticket_id = str(uuid.uuid4())
+                                df.at[idx, "ticket_id"] = new_ticket_id
+                                logger.info(
+                                    f"Regenerated ticket_id for duplicate: "
+                                    f"source_id={df.at[idx, 'source_id'] if 'source_id' in df.columns else 'unknown'}, "
+                                    f"new_id={new_ticket_id}"
+                                )
 
                     # Check for duplicates by source_id and update instead of append
                     if "source_id" in df.columns and "source_id" in existing_df.columns:

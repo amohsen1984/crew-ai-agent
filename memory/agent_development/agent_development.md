@@ -298,23 +298,33 @@ task = Task(
 
 Recommended directory layout:
 
-```
-project/
-├── config/
-│   ├── agents.yaml      # Agent definitions
-│   └── tasks.yaml       # Task definitions
-├── src/
-│   ├── crew.py          # Crew orchestration
-│   ├── agents/          # Custom agent logic
-│   ├── tools/           # Custom tools
-│   └── models/          # Pydantic output models
-├── data/
-│   ├── input/           # Input CSV files
-│   └── output/          # Generated tickets, logs
-├── tests/
-│   └── test_agents.py   # Agent unit tests
-├── app.py               # Streamlit UI
-└── main.py              # Entry point
+```mermaid
+graph TD
+    Project[project/] --> Config[config/]
+    Project --> Src[src/]
+    Project --> Data[data/]
+    Project --> Tests[tests/]
+    Project --> App[app.py<br/>Streamlit UI]
+    Project --> Main[main.py<br/>Entry point]
+    
+    Config --> AgentsYaml[agents.yaml<br/>Agent definitions]
+    Config --> TasksYaml[tasks.yaml<br/>Task definitions]
+    
+    Src --> Crew[crew.py<br/>Crew orchestration]
+    Src --> Agents[agents/<br/>Custom agent logic]
+    Src --> Tools[tools/<br/>Custom tools]
+    Src --> Models[models/<br/>Pydantic output models]
+    
+    Data --> Input[input/<br/>Input CSV files]
+    Data --> Output[output/<br/>Generated tickets, logs]
+    
+    Tests --> TestAgents[test_agents.py<br/>Agent unit tests]
+    
+    style Project fill:#e1f5ff
+    style Config fill:#fff4e1
+    style Src fill:#e8f5e9
+    style Data fill:#fce4ec
+    style Tests fill:#f3e5f5
 ```
 
 ## Testing Agents

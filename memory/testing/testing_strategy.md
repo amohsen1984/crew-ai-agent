@@ -8,27 +8,37 @@ This document defines the testing approach for the Intelligent User Feedback Ana
 
 ## Test Structure
 
-```text
-tests/
-├── __init__.py
-├── conftest.py              # Shared fixtures
-├── unit/
-│   ├── __init__.py
-│   ├── test_models.py       # Pydantic model validation
-│   ├── test_tools.py        # CSV read/write tools
-│   └── test_agents.py       # Individual agent behavior
-├── integration/
-│   ├── __init__.py
-│   ├── test_pipeline.py     # Pipeline data flow
-│   └── test_crew.py         # Agent orchestration
-├── accuracy/
-│   ├── __init__.py
-│   └── test_classification.py  # vs expected_classifications.csv
-└── e2e/
-    ├── __init__.py
-    ├── test_full_system.py  # Complete pipeline with real LLM
-    ├── test_cli.py          # CLI entry point testing
-    └── test_ui.py           # Streamlit UI testing
+```mermaid
+graph TD
+    Tests[tests/] --> Init[__init__.py]
+    Tests --> Conftest[conftest.py<br/>Shared fixtures]
+    Tests --> Unit[unit/]
+    Tests --> Integration[integration/]
+    Tests --> Accuracy[accuracy/]
+    Tests --> E2E[e2e/]
+    
+    Unit --> UnitInit[__init__.py]
+    Unit --> UnitModels[test_models.py<br/>Pydantic model validation]
+    Unit --> UnitTools[test_tools.py<br/>CSV read/write tools]
+    Unit --> UnitAgents[test_agents.py<br/>Individual agent behavior]
+    
+    Integration --> IntegrationInit[__init__.py]
+    Integration --> IntegrationPipeline[test_pipeline.py<br/>Pipeline data flow]
+    Integration --> IntegrationCrew[test_crew.py<br/>Agent orchestration]
+    
+    Accuracy --> AccuracyInit[__init__.py]
+    Accuracy --> AccuracyClassification[test_classification.py<br/>vs expected_classifications.csv]
+    
+    E2E --> E2EInit[__init__.py]
+    E2E --> E2EFull[test_full_system.py<br/>Complete pipeline with real LLM]
+    E2E --> E2ECLI[test_cli.py<br/>CLI entry point testing]
+    E2E --> E2EUI[test_ui.py<br/>Streamlit UI testing]
+    
+    style Tests fill:#e1f5ff
+    style Unit fill:#fff4e1
+    style Integration fill:#e8f5e9
+    style Accuracy fill:#fce4ec
+    style E2E fill:#f3e5f5
 ```
 
 ---
